@@ -16,7 +16,9 @@
     "build:web": "vite build",
     "build": "npm run typecheck && npm run build:web && npm run build:api",
     "start": "node dist/backend/server.js",
+    "start:deploy": "npm run db:deploy && npm run start",
     "db:setup": "prisma generate && tsx backend/src/cli/setupDb.ts",
+    "db:deploy": "prisma generate && prisma db push --skip-generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "npm run db:setup"
   },

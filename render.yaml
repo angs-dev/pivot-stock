@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: nse-watch-scanner
+    runtime: node
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:deploy
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        value: file:./dev.db
+      - key: AUTO_SCAN_ENABLED
+        value: "false"
+      - key: PROVIDER_CONCURRENCY
+        value: "8"
+      - key: PROVIDER_RATE_LIMIT_MS
+        value: "0"
+      - key: PROVIDER_TIMEOUT_MS
+        value: "15000"
+      - key: PROVIDER_RETRY_COUNT
+        value: "1"
+      - key: CACHE_DURATION_MINUTES
+        value: "10"
+      - key: DAILY_CACHE_DURATION_MINUTES
+        value: "1440"
+      - key: SCAN_LOOKBACK_DAYS
+        value: "25"
+      - key: DAILY_LOOKBACK_DAYS
+        value: "45"

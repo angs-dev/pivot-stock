@@ -99,6 +99,32 @@ Fast scan defaults are controlled by environment variables:
 - `DAILY_LOOKBACK_DAYS=45`
 - `DAILY_CACHE_DURATION_MINUTES=1440`
 
+## Free Web Hosting
+
+GitHub Actions can run cron jobs, but it cannot host the Express dashboard 24/7. Use a free Node web-service host for the website.
+
+### Render
+
+This repo includes `render.yaml` for Render Blueprint deployment.
+
+1. Push this project to GitHub.
+2. Open Render and create a new Blueprint from the repo.
+3. Render reads `render.yaml`, builds with `npm ci && npm run build`, and starts with `npm run start:deploy`.
+4. Optional GitHub Actions deploy: create a Render deploy hook, then add it as the repository secret `RENDER_DEPLOY_HOOK_URL`.
+
+Free Render services can sleep when idle, and the local SQLite file is best treated as temporary demo storage.
+
+### Koyeb
+
+Koyeb can deploy the same repo as a Node.js Git service.
+
+- Build command: `npm ci && npm run build`
+- Run command: `npm run start:deploy`
+- Port: use the platform-provided `PORT`
+- Environment: set `DATABASE_URL=file:./dev.db`
+
+Like Render free hosting, use this as a demo/hobby deployment unless you move storage to a managed database.
+
 ## How the Calculations Work
 
 - Universe can be the official NSE equity list (`https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv`) or the official Nifty 200 constituents CSV (`https://www.niftyindices.com/IndexConstituent/ind_nifty200list.csv`).

@@ -36,7 +36,7 @@ import "./styles.css";
 type Category = "BUY" | "WATCH" | "REJECTED";
 type DashboardWidgetId = "scan" | "settings" | "opportunities" | "workspace" | "testing";
 type UniverseKey = "nifty200" | "nse-equity";
-type ScanScope = "nse" | "nifty200" | "fast";
+type ScanScope = "nse" | "nifty200";
 
 interface Condition {
   key: string;
@@ -672,9 +672,8 @@ function App() {
           <label>
             Scope
             <select value={scanScope} onChange={(event) => setScanScope(event.target.value as ScanScope)}>
-              <option value="nse">NSE Equity List</option>
-              <option value="nifty200">Nifty 200</option>
-              <option value="fast">Fast NSE Sample (50)</option>
+              <option value="nse">Full NSE</option>
+              <option value="nifty200">NSE 200</option>
             </select>
           </label>
           <NumberInput label="Capital" value={controls.capitalPerTrade} onChange={(value) => setControls({ ...controls, capitalPerTrade: value })} />
@@ -1029,8 +1028,8 @@ function App() {
             <label>
               Universe
               <select value={backtestControls.universe} onChange={(event) => setBacktestControls({ ...backtestControls, universe: event.target.value as UniverseKey })}>
-                <option value="nse-equity">NSE Equity List</option>
-                <option value="nifty200">Nifty 200</option>
+                <option value="nse-equity">Full NSE</option>
+                <option value="nifty200">NSE 200</option>
               </select>
             </label>
             <button className="primary" onClick={runBacktestNow} disabled={backtestProgress?.status === "running"}>
@@ -1383,11 +1382,11 @@ function scanUniverseForScope(scope: ScanScope): UniverseKey {
 }
 
 function scanLimitForScope(scope: ScanScope): number | undefined {
-  return scope === "fast" ? 50 : undefined;
+  return undefined;
 }
 
 function scanScopeFallbackTotal(scope: ScanScope): number {
-  return scope === "fast" ? 50 : universeFallbackTotal(scanUniverseForScope(scope));
+  return universeFallbackTotal(scanUniverseForScope(scope));
 }
 
 function universeFallbackTotal(universe: UniverseKey): number {
@@ -1395,9 +1394,8 @@ function universeFallbackTotal(universe: UniverseKey): number {
 }
 
 function scanActionLabel(scope: ScanScope): string {
-  if (scope === "nifty200") return "Scan Nifty 200";
-  if (scope === "fast") return "Fast NSE Scan";
-  return "Scan NSE List";
+  if (scope === "nifty200") return "Scan NSE 200";
+  return "Scan Full NSE";
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
