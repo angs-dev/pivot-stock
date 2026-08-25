@@ -1,4 +1,12 @@
-import { averagePreviousVolume, ema, pivotLevels, previousDailyCandle, sessionVwap } from "./indicators.js";
+import {
+  averagePreviousVolume,
+  ema,
+  pivotLevels,
+  previousDailyCandle,
+  sessionVwap,
+  superTrend,
+  type SuperTrendPoint
+} from "./indicators.js";
 import { calculateTradePlan } from "./trade.js";
 import type {
   Candle,
@@ -54,6 +62,14 @@ export function evaluateStrategy(input: EvaluateInput): StrategyEvaluation {
     previousVolumeAverage && previousVolumeAverage > 0 ? latest.volume / previousVolumeAverage : undefined;
   const daily = previousDailyCandle(input.dailyCandles, latest.tradingDate);
   const pivots = daily ? pivotLevels(daily) : undefined;
+  const superTrendSeries = superTrend(candles, input.settings.superTrendPeriod, input.settings.superTrendMultiplier);
+  const superTrendPoint = superTrendSeries[candles.length - 1] ?? undefined;
+  // Only completed sessions before today, so an in-progress daily bar cannot leak in.
+  const completedDaily = [...input.dailyCandles]
+    .filter((candle) => candle.isComplete && candle.tradingDate < latest.tradingDate)
+    .sort((a, b) => a.tradingDate.localeCompare(b.tradingDate));
+  const dailySuperTrendPoint =
+    superTrend(completedDaily, input.settings.superTrendPeriod, input.settings.superTrendMultiplier).at(-1) ?? undefined;
   const breakout = detectBreakout(latest, previous, pivots, input.settings);
   const currentDayOpenIndex = candles.findIndex((candle) => candle.tradingDate === latest.tradingDate);
   const currentDayOpen = currentDayOpenIndex >= 0 ? candles[currentDayOpenIndex].open : null;
@@ -87,6 +103,8 @@ export function evaluateStrategy(input: EvaluateInput): StrategyEvaluation {
     pivots,
     breakout,
     liquidity,
+    superTrendPoint,
+    dailySuperTrendPoint,
     currentDayOpen,
     dayOpenEma20,
     positiveDayOpen,
@@ -137,6 +155,10 @@ export function evaluateStrategy(input: EvaluateInput): StrategyEvaluation {
       s3: pivots?.s3 ?? null,
       volumeRatio: volumeRatio ?? null,
       breakoutLevel: breakout?.level ?? null,
+      superTrend: superTrendPoint?.value ?? null,
+      superTrendTrend: superTrendPoint?.trend ?? null,
+      superTrendFlip: superTrendPoint?.flip ? 1 : 0,
+      dailySuperTrendTrend: dailySuperTrendPoint?.trend ?? null,
       liquidity
     },
     latestCandle: latest,
@@ -268,6 +290,8 @@ function buildConditions(input: {
   pivots?: PivotLevels;
   breakout?: BreakoutCandidate;
   liquidity: number;
+  superTrendPoint?: SuperTrendPoint;
+  dailySuperTrendPoint?: SuperTrendPoint;
   currentDayOpen: number | null;
   dayOpenEma20: number | null;
   positiveDayOpen: boolean;
@@ -354,6 +378,24 @@ function buildConditions(input: {
     ]
   ];
 
+  if (settings.requireSuperTrend) {
+    rows.push([
+      "superTrendUp",
+      `SuperTrend (${settings.superTrendPeriod}, ${settings.superTrendMultiplier}) is in an uptrend`,
+      input.superTrendPoint?.trend === 1,
+      "SuperTrend is in a downtrend"
+    ]);
+  }
+
+  if (settings.requireDailySuperTrend) {
+    rows.push([
+      "dailySuperTrendUp",
+      "Daily SuperTrend agrees with the intraday uptrend",
+      input.dailySuperTrendPoint?.trend === 1,
+      "Daily SuperTrend is in a downtrend"
+    ]);
+  }
+
   return rows.map(([key, label, passed, message], index) => ({
     key,
     label,
@@ -391,7 +433,9 @@ function pendingMessage(key: string, fallback: string): string {
     volumeRatio: "Waiting for volume confirmation",
     notExtended: "Entry is excessively extended",
     withinExtensionLimit: "Close is more than 1.5% above breakout",
-    liquidity: "Invalid or insufficient volume data"
+    liquidity: "Invalid or insufficient volume data",
+    superTrendUp: "SuperTrend is in a downtrend",
+    dailySuperTrendUp: "Daily SuperTrend is in a downtrend"
   };
   return map[key] ?? fallback;
 }

@@ -11,6 +11,7 @@
     "scan": "tsx backend/src/cli/scan.ts",
     "scan:cron": "tsx backend/src/cli/scan.ts --universe nse-equity --no-persist --out-dir scan-output --concurrency 18 --rate-limit-ms 0 --timeout-ms 12000 --retry-count 1 --scan-lookback-days 25 --daily-lookback-days 45 --daily-cache-minutes 1440",
     "backtest": "tsx backend/src/cli/backtest.ts",
+    "paper:settle": "tsx backend/src/cli/settlePaper.ts",
     "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
     "build:api": "tsc -p backend/tsconfig.json",
     "build:web": "vite build",

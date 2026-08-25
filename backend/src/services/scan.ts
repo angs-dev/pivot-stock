@@ -7,6 +7,7 @@ import { getCachedCandles } from "../market/candleCache.js";
 import { YahooFinanceProvider } from "../market/YahooFinanceProvider.js";
 import { evaluateStrategy } from "../strategy.js";
 import type { ProviderLog, StockUniverseItem, StrategyEvaluation, StrategySettings, UniverseKey } from "../types.js";
+import { openPaperTradesFromScan } from "./paperTrading.js";
 import { loadStockUniverse } from "./universe.js";
 
 export interface ScanOptions extends Partial<StrategySettings> {
@@ -15,6 +16,7 @@ export interface ScanOptions extends Partial<StrategySettings> {
   universe?: UniverseKey;
   forceUniverseRefresh?: boolean;
   persistResults?: boolean;
+  autoPaperTrade?: boolean;
 }
 
 export interface ScanProgress {
@@ -124,6 +126,12 @@ export async function runScan(
       await persistScanResults(run.id, results);
     } else {
       logLine(logs, "info", "Full scan result persistence skipped for this run.");
+    }
+
+    if (options.autoPaperTrade ?? appConfig.autoPaperTradeEnabled) {
+      progress.message = "Opening auto paper trades";
+      onProgress?.({ ...progress });
+      await openPaperTradesFromScan(results, logs);
     }
 
     progress.status = "completed";

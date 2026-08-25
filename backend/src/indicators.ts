@@ -74,3 +74,93 @@ export function previousDailyCandle(dailyCandles: Candle[], tradingDate: string)
     .sort((a, b) => a.tradingDate.localeCompare(b.tradingDate))
     .at(-1);
 }
+
+/**
+ * Wilder's ATR (Pine's `ta.atr`), seeded with an SMA of the first true ranges
+ * and then smoothed with RMA. This is not the same as an SMA of true range.
+ */
+export function wilderAtr(candles: Candle[], period: number): Array<number | null> {
+  const output: Array<number | null> = Array(candles.length).fill(null);
+  if (period < 1 || candles.length < period) return output;
+
+  const trueRanges = candles.map((candle, index) => {
+    if (index === 0) return candle.high - candle.low;
+    const previousClose = candles[index - 1].close;
+    return Math.max(
+      candle.high - candle.low,
+      Math.abs(candle.high - previousClose),
+      Math.abs(candle.low - previousClose)
+    );
+  });
+
+  let seed = 0;
+  for (let index = 0; index < period; index += 1) seed += trueRanges[index];
+  let atr = seed / period;
+  output[period - 1] = atr;
+
+  for (let index = period; index < candles.length; index += 1) {
+    atr = (atr * (period - 1) + trueRanges[index]) / period;
+    output[index] = atr;
+  }
+
+  return output;
+}
+
+export interface SuperTrendPoint {
+  trend: 1 | -1;
+  up: number;
+  dn: number;
+  value: number;
+  flip: boolean;
+}
+
+/**
+ * Port of the SFI CHARLIE / SuperTrend bands: `ohlc4 +/- multiplier * ATR`,
+ * ratcheted so each band only moves in the trend's favour, flipping when a
+ * close crosses the opposite band from the previous bar.
+ */
+export function superTrend(
+  candles: Candle[],
+  period = 10,
+  multiplier = 1.7
+): Array<SuperTrendPoint | null> {
+  const atrSeries = wilderAtr(candles, period);
+  const output: Array<SuperTrendPoint | null> = Array(candles.length).fill(null);
+  let previousUp: number | null = null;
+  let previousDn: number | null = null;
+  let trend: 1 | -1 = 1;
+  let started = false;
+
+  candles.forEach((candle, index) => {
+    const atr = atrSeries[index];
+    if (atr === null || !Number.isFinite(atr)) return;
+
+    const source = (candle.open + candle.high + candle.low + candle.close) / 4;
+    let up = source - multiplier * atr;
+    let dn = source + multiplier * atr;
+    const up1 = previousUp ?? up;
+    const dn1 = previousDn ?? dn;
+    const previousClose = candles[index - 1]?.close;
+
+    if (previousClose !== undefined && previousClose > up1) up = Math.max(up, up1);
+    if (previousClose !== undefined && previousClose < dn1) dn = Math.min(dn, dn1);
+
+    const priorTrend = trend;
+    if (trend === -1 && candle.close > dn1) trend = 1;
+    else if (trend === 1 && candle.close < up1) trend = -1;
+
+    output[index] = {
+      trend,
+      up,
+      dn,
+      value: trend === 1 ? up : dn,
+      flip: started && trend !== priorTrend
+    };
+
+    previousUp = up;
+    previousDn = dn;
+    started = true;
+  });
+
+  return output;
+}

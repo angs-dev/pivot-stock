@@ -4,10 +4,11 @@ import morgan from "morgan";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { appConfig, normalizeNumber } from "./config.js";
-import { marketStatus } from "./dates.js";
+import { marketStatus, tradingDateFor } from "./dates.js";
 import { prisma } from "./db.js";
 import { friendlyError } from "./logger.js";
 import { runBacktest, type BacktestProgress } from "./services/backtest.js";
+import { dailyPaperPerformance, isSessionSettleable, settlePaperTrades } from "./services/paperTrading.js";
 import { runScan, type ScanProgress } from "./services/scan.js";
 import { getSavedStrategySettings, normalizeStrategySettings, saveStrategySettings } from "./services/settings.js";
 import { loadStockUniverse, normalizeUniverseKey } from "./services/universe.js";
@@ -35,6 +36,8 @@ let backtestProgress: BacktestProgress = {
   message: "No backtest has run yet"
 };
 let backtestRunning = false;
+let settlementRunning = false;
+let lastSettledDate: string | null = null;
 
 app.use(
   cors({
@@ -55,7 +58,8 @@ app.get("/api/status", async (_request, response) => {
     provider: appConfig.providerName,
     delayed: appConfig.providerDelayed,
     lastSuccessfulDataUpdate: lastCache?.fetchedAt ?? null,
-    autoScanEnabled: appConfig.autoScanEnabled
+    autoScanEnabled: appConfig.autoScanEnabled,
+    autoPaperTradeEnabled: appConfig.autoPaperTradeEnabled
   });
 });
 
@@ -234,12 +238,15 @@ app.post("/api/paper-trades", async (request, response) => {
       response.status(400).json({ error: "Create paper trades only from complete BUY scan candidates." });
       return;
     }
+    const entryTime = result.signalTime ?? new Date();
     const trade = await prisma.paperTrade.create({
       data: {
         symbol: result.stockSymbol,
         companyName: result.companyName,
         sector: result.sector,
-        entryTime: result.signalTime ?? new Date(),
+        tradingDate: tradingDateFor(entryTime),
+        source: "MANUAL",
+        entryTime,
         entryPrice: result.entry,
         quantity: result.quantity,
         target: result.target2,
@@ -307,6 +314,30 @@ app.post("/api/paper-trades/:id/close", async (request, response) => {
   }
 });
 
+app.get("/api/paper-trades/daily", async (_request, response) => {
+  try {
+    response.json(await dailyPaperPerformance());
+  } catch (error) {
+    response.status(500).json({ error: friendlyError(error) });
+  }
+});
+
+app.post("/api/paper-trades/settle", async (request, response) => {
+  if (settlementRunning) {
+    response.status(409).json({ error: "A settlement pass is already running." });
+    return;
+  }
+  settlementRunning = true;
+  try {
+    const tradingDate = typeof request.body?.tradingDate === "string" ? request.body.tradingDate : undefined;
+    response.json(await settlePaperTrades({ tradingDate }));
+  } catch (error) {
+    response.status(500).json({ error: friendlyError(error) });
+  } finally {
+    settlementRunning = false;
+  }
+});
+
 app.get("/api/paper-trades/performance", async (_request, response) => {
   const settings = await getSavedStrategySettings();
   const trades = await prisma.paperTrade.findMany();
@@ -363,21 +394,58 @@ app.get("/api/export/backtest/:id/trades", async (request, response) => {
   response.send(toCsv(run.trades));
 });
 
-if (appConfig.autoScanEnabled) {
-  setInterval(() => {
-    if (!scanRunning && marketStatus().isOpen) {
-      scanRunning = true;
-      getSavedStrategySettings()
-        .then((settings) =>
-          runScan(settings, (progress) => {
-            scanProgress = progress;
-          })
-        )
+// Daily cycle: once the closing bell has passed, replay the session's completed
+// candles and close every position the scanner opened during the day.
+if (appConfig.autoPaperTradeEnabled) {
+  setInterval(
+    () => {
+      const today = tradingDateFor(new Date());
+      if (settlementRunning || lastSettledDate === today || !isSessionSettleable(today)) return;
+      settlementRunning = true;
+      settlePaperTrades()
+        .then((summary) => {
+          lastSettledDate = today;
+          console.log(
+            `Daily settlement for ${today}: ${summary.settled} closed, ` +
+              `${summary.unresolved} unresolved, net ${summary.netProfit}`
+          );
+        })
+        .catch((error) => console.error(`Daily settlement failed: ${friendlyError(error)}`))
         .finally(() => {
-          scanRunning = false;
+          settlementRunning = false;
         });
-    }
-  }, 5 * 60_000);
+    },
+    15 * 60_000
+  );
+}
+
+// Rolling intraday filter: re-scan the universe on a fixed cadence while the
+// market is open. A scan that overruns its slot is skipped, never queued.
+if (appConfig.autoScanEnabled) {
+  const intervalMs = Math.max(1, appConfig.autoScanIntervalMinutes) * 60_000;
+  console.log(
+    `Auto scan enabled: every ${appConfig.autoScanIntervalMinutes} minute(s) during NSE hours ` +
+      `on the ${appConfig.autoScanUniverse} universe.`
+  );
+  setInterval(() => {
+    if (scanRunning || !marketStatus().isOpen) return;
+    scanRunning = true;
+    getSavedStrategySettings()
+      .then((settings) =>
+        runScan({ ...settings, universe: appConfig.autoScanUniverse }, (progress) => {
+          scanProgress = progress;
+        })
+      )
+      .then((run) => {
+        const buy = run.results.filter((result) => result.category === "BUY").length;
+        const watch = run.results.filter((result) => result.category === "WATCH").length;
+        console.log(`Auto scan #${run.runId} finished: ${buy} BUY, ${watch} WATCH.`);
+      })
+      .catch((error) => console.error(`Auto scan failed: ${friendlyError(error)}`))
+      .finally(() => {
+        scanRunning = false;
+      });
+  }, intervalMs);
 }
 
 app.use(express.static(frontendDist));
