@@ -164,11 +164,46 @@ interface PaperTrade {
   symbol: string;
   companyName?: string;
   status: "OPEN" | "CLOSED";
+  tradingDate?: string;
+  source?: "AUTO" | "MANUAL";
   entryPrice: number;
   quantity: number;
   target: number;
   stopLoss: number;
+  exitReason?: string | null;
+  settleNote?: string | null;
   netProfit?: number | null;
+}
+
+interface DailyPaperRow {
+  tradingDate: string;
+  trades: number;
+  openTrades: number;
+  closedTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  grossProfit: number;
+  charges: number;
+  netProfit: number;
+  targetHits: number;
+  stopHits: number;
+  timedExits: number;
+  cumulativeNet: number;
+}
+
+interface DailyPaperPerformance {
+  days: DailyPaperRow[];
+  totals: {
+    days: number;
+    trades: number;
+    closedTrades: number;
+    openTrades: number;
+    netProfit: number;
+    winRate: number;
+    bestDay: number;
+    worstDay: number;
+  };
 }
 
 interface ChargeSettings {
@@ -197,6 +232,10 @@ interface EditableSettings {
   vwapClearancePct: number;
   minimumAverageVolume: number;
   maxHoldingCandles: number;
+  superTrendPeriod: number;
+  superTrendMultiplier: number;
+  requireSuperTrend: boolean;
+  requireDailySuperTrend: boolean;
   squareOffTime?: string;
   allowOverlap: boolean;
   charges: ChargeSettings;
@@ -219,6 +258,10 @@ const DEFAULT_SETTINGS: EditableSettings = {
   vwapClearancePct: 0.001,
   minimumAverageVolume: 1,
   maxHoldingCandles: 16,
+  superTrendPeriod: 10,
+  superTrendMultiplier: 1.7,
+  requireSuperTrend: true,
+  requireDailySuperTrend: true,
   squareOffTime: "15:15",
   allowOverlap: false,
   charges: {
@@ -246,6 +289,9 @@ function App() {
   const [backtestProgress, setBacktestProgress] = React.useState<JobProgress | null>(null);
   const [paperTrades, setPaperTrades] = React.useState<PaperTrade[]>([]);
   const [paperPerformance, setPaperPerformance] = React.useState<Record<string, number>>({});
+  const [paperDaily, setPaperDaily] = React.useState<DailyPaperPerformance | null>(null);
+  const [settling, setSettling] = React.useState(false);
+  const [settleMessage, setSettleMessage] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<ScanResult | null>(null);
   const [details, setDetails] = React.useState<{ result: ScanResult; recentCandles: unknown[] } | null>(null);
   const [tab, setTab] = React.useState<"BUY" | "WATCH" | "REJECTED" | "ALL">("BUY");
@@ -385,12 +431,42 @@ function App() {
   }
 
   async function fetchPaper() {
-    const [trades, performance] = await Promise.all([
+    const [trades, performance, daily] = await Promise.all([
       fetchJson<PaperTrade[]>("/api/paper-trades"),
-      fetchJson<Record<string, number>>("/api/paper-trades/performance")
+      fetchJson<Record<string, number>>("/api/paper-trades/performance"),
+      fetchJson<DailyPaperPerformance>("/api/paper-trades/daily")
     ]);
     setPaperTrades(trades);
     setPaperPerformance(performance);
+    setPaperDaily(daily);
+  }
+
+  async function settleDay() {
+    setSettling(true);
+    setSettleMessage(null);
+    try {
+      const summary = await fetchJson<{
+        settled: number;
+        unresolved: number;
+        pendingSession: number;
+        netProfit: number;
+        notes: string[];
+      }>("/api/paper-trades/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+      setSettleMessage(
+        `Settled ${summary.settled} trade${summary.settled === 1 ? "" : "s"} for ${money(summary.netProfit)} net.` +
+          (summary.pendingSession ? ` ${summary.pendingSession} still waiting for the close.` : "") +
+          (summary.unresolved ? ` ${summary.unresolved} could not be resolved.` : "")
+      );
+      await fetchPaper();
+    } catch (requestError) {
+      setSettleMessage(errorText(requestError));
+    } finally {
+      setSettling(false);
+    }
   }
 
   async function runScanNow(scope = scanScope) {
@@ -410,6 +486,11 @@ function App() {
     } catch (requestError) {
       setError(errorText(requestError));
     }
+  }
+
+  async function startScan(scope: ScanScope) {
+    setScanScope(scope);
+    await runScanNow(scope);
   }
 
   async function runBacktestNow() {
@@ -548,7 +629,12 @@ function App() {
             <strong>{controls.minimumWatchPassCount} passes</strong>
             <small>Backtest entries come from Watch List data</small>
           </div>
-          <button className="rail-action" onClick={() => runScanNow(scanScope)} disabled={scanProgress?.status === "running"} title="Run scanner">
+          <button
+            className="rail-action"
+            onClick={() => runScanNow(scanScope)}
+            disabled={scanProgress?.status === "running"}
+            title={scanActionLabel(scanScope)}
+          >
             <Play />
             <span>Run</span>
           </button>
@@ -614,13 +700,21 @@ function App() {
             <span>Watch-only backtest</span>
           </div>
           <div className="cockpit-actions">
-            <button className="primary" onClick={() => runScanNow(scanScope)} disabled={scanProgress?.status === "running"}>
+            <button
+              className={scanScope === "nifty200" ? "primary active-scope" : "primary"}
+              onClick={() => startScan("nifty200")}
+              disabled={scanProgress?.status === "running"}
+            >
               <Play />
-              {scanActionLabel(scanScope)}
+              Scan NSE 200
             </button>
-            <button className={layoutMode ? "active-toggle" : ""} onClick={() => setLayoutMode((current) => !current)}>
-              <LayoutDashboard />
-              {layoutMode ? "Lock Layout" : "Arrange"}
+            <button
+              className={scanScope === "nse" ? "primary active-scope" : "primary"}
+              onClick={() => startScan("nse")}
+              disabled={scanProgress?.status === "running"}
+            >
+              <Play />
+              Scan Full NSE
             </button>
           </div>
         </div>
@@ -669,13 +763,6 @@ function App() {
               <option>15m</option>
             </select>
           </label>
-          <label>
-            Scope
-            <select value={scanScope} onChange={(event) => setScanScope(event.target.value as ScanScope)}>
-              <option value="nse">Full NSE</option>
-              <option value="nifty200">NSE 200</option>
-            </select>
-          </label>
           <NumberInput label="Capital" value={controls.capitalPerTrade} onChange={(value) => setControls({ ...controls, capitalPerTrade: value })} />
           <NumberInput label="Target %" value={controls.targetPct * 100} step={0.1} onChange={(value) => setControls({ ...controls, targetPct: value / 100 })} />
           <NumberInput
@@ -690,10 +777,26 @@ function App() {
             step={0.1}
             onChange={(value) => setControls({ ...controls, volumeRatioThreshold: value })}
           />
-          <button className="primary" onClick={() => runScanNow(scanScope)} disabled={scanProgress?.status === "running"}>
-            <Play />
-            {scanActionLabel(scanScope)}
-          </button>
+          <div className="scan-actions">
+            <button
+              className={scanScope === "nifty200" ? "primary active-scope" : "primary"}
+              onClick={() => startScan("nifty200")}
+              disabled={scanProgress?.status === "running"}
+            >
+              <Play />
+              <span>Scan NSE 200</span>
+              <small>{universeFallbackTotal("nifty200")} symbols</small>
+            </button>
+            <button
+              className={scanScope === "nse" ? "primary active-scope" : "primary"}
+              onClick={() => startScan("nse")}
+              disabled={scanProgress?.status === "running"}
+            >
+              <Play />
+              <span>Scan Full NSE</span>
+              <small>~{universeFallbackTotal("nse-equity")} symbols</small>
+            </button>
+          </div>
         </div>
         <ProgressLine progress={scanProgress} fallbackTotal={scanScopeFallbackTotal(scanScope)} />
       </section>
@@ -775,6 +878,42 @@ function App() {
                 >
                   <option value="no">No</option>
                   <option value="yes">Yes</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div>
+            <h3 className="settings-group-title">SuperTrend filter</h3>
+            <div className="controls settings-grid">
+              <NumberInput
+                label="ATR period"
+                value={controls.superTrendPeriod}
+                onChange={(value) => updateSetting("superTrendPeriod", Math.floor(value))}
+              />
+              <NumberInput
+                label="ATR multiplier"
+                value={controls.superTrendMultiplier}
+                step={0.1}
+                onChange={(value) => updateSetting("superTrendMultiplier", value)}
+              />
+              <label>
+                Intraday trend
+                <select
+                  value={controls.requireSuperTrend ? "yes" : "no"}
+                  onChange={(event) => updateSetting("requireSuperTrend", event.target.value === "yes")}
+                >
+                  <option value="yes">Required</option>
+                  <option value="no">Off</option>
+                </select>
+              </label>
+              <label>
+                Daily agreement
+                <select
+                  value={controls.requireDailySuperTrend ? "yes" : "no"}
+                  onChange={(event) => updateSetting("requireDailySuperTrend", event.target.value === "yes")}
+                >
+                  <option value="yes">Required</option>
+                  <option value="no">Off</option>
                 </select>
               </label>
             </div>
@@ -933,6 +1072,7 @@ function App() {
                   <th>Prev High</th>
                   <th>Pivot</th>
                   <th>R1</th>
+                  <th>Trend</th>
                   <th>Vol Ratio</th>
                   <th>Breakout</th>
                   <th>Target</th>
@@ -954,6 +1094,7 @@ function App() {
                     <td>{formatNumber(result.previousHigh)}</td>
                     <td>{formatNumber(result.pivot)}</td>
                     <td>{formatNumber(result.r1)}</td>
+                    <td><TrendPair result={result} /></td>
                     <td>{formatNumber(result.volumeRatio)}</td>
                     <td>{formatNumber(result.breakoutLevel)}</td>
                     <td>{money(result.target2)}</td>
@@ -1221,6 +1362,12 @@ function App() {
           <div className="section-title">
             <ShieldCheck />
             <h2>Paper Trading</h2>
+            <div className="actions">
+              <button onClick={settleDay} disabled={settling} title="Replay today's completed candles and close open positions">
+                <RefreshCcw />
+                {settling ? "Settling" : "Settle day"}
+              </button>
+            </div>
           </div>
           <div className="summary-grid">
             <Metric label="Open" value={paperPerformance.openTrades ?? 0} />
@@ -1228,14 +1375,63 @@ function App() {
             <Metric label="Win rate" value={`${paperPerformance.winRate ?? 0}%`} />
             <Metric label="Net P&L" value={money(paperPerformance.netPnL)} />
           </div>
+          {settleMessage && <p className="muted settle-note">{settleMessage}</p>}
+          <div className="mini-table-wrap daily-pnl">
+            <div className="mini-table-title">
+              <strong>Day-wise P&L</strong>
+              <span>
+                {paperDaily?.totals.days ?? 0} sessions · best {money(paperDaily?.totals.bestDay)} · worst{" "}
+                {money(paperDaily?.totals.worstDay)}
+              </span>
+            </div>
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Trades</th>
+                  <th>T / S / X</th>
+                  <th>Win %</th>
+                  <th>Net</th>
+                  <th>Cumulative</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(paperDaily?.days ?? []).map((day) => (
+                  <tr key={day.tradingDate}>
+                    <td>{day.tradingDate}</td>
+                    <td>
+                      {day.closedTrades}
+                      {day.openTrades ? ` (+${day.openTrades} open)` : ""}
+                    </td>
+                    <td>
+                      {day.targetHits} / {day.stopHits} / {day.timedExits}
+                    </td>
+                    <td>{formatNumber(day.winRate)}%</td>
+                    <td className={profitClass(day.netProfit)}>{money(day.netProfit)}</td>
+                    <td className={profitClass(day.cumulativeNet)}>{money(day.cumulativeNet)}</td>
+                  </tr>
+                ))}
+                {!paperDaily?.days.length && (
+                  <tr>
+                    <td colSpan={6}>No paper trades recorded yet.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           <div className="trade-list">
             {paperTrades.map((trade) => (
               <article key={trade.id} className="trade-row">
                 <div>
                   <strong>{trade.symbol}</strong>
                   <span>{trade.status}</span>
+                  {trade.source === "AUTO" && <span className="source-tag">AUTO</span>}
                 </div>
-                <p>{trade.quantity} @ {money(trade.entryPrice)} · Target {money(trade.target)} · Stop {money(trade.stopLoss)}</p>
+                <p>
+                  {trade.tradingDate ? `${trade.tradingDate} · ` : ""}
+                  {trade.quantity} @ {money(trade.entryPrice)} · Target {money(trade.target)} · Stop {money(trade.stopLoss)}
+                </p>
+                {trade.settleNote && <p className="muted">{trade.settleNote}</p>}
                 {trade.status === "OPEN" ? (
                   <div className="mini-actions">
                     <button onClick={() => closeTrade(trade, trade.target, "TARGET")}>Target</button>
@@ -1250,7 +1446,9 @@ function App() {
                     </button>
                   </div>
                 ) : (
-                  <p>Net {money(trade.netProfit)}</p>
+                  <p className={profitClass(trade.netProfit)}>
+                    {trade.exitReason ? `${trade.exitReason.replace(/_/g, " ")} · ` : ""}Net {money(trade.netProfit)}
+                  </p>
                 )}
               </article>
             ))}
@@ -1261,6 +1459,19 @@ function App() {
         </div>
       </div>
     </main>
+  );
+}
+
+function TrendPair({ result }: { result: ScanResult }) {
+  const verdict = (key: string) => result.conditions?.find((condition) => condition.key === key)?.passed;
+  const intraday = verdict("superTrendUp");
+  const daily = verdict("dailySuperTrendUp");
+  if (intraday === undefined && daily === undefined) return <span className="muted">-</span>;
+  return (
+    <span className="trend-pair" title="Intraday SuperTrend / daily SuperTrend">
+      <i className={intraday ? "up" : "down"}>{intraday ? "\u25b2" : "\u25bc"}</i>
+      <i className={daily ? "up" : "down"}>{daily ? "\u25b2" : "\u25bc"}</i>
+    </span>
   );
 }
 

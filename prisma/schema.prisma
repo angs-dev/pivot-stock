@@ -156,6 +156,8 @@ model PaperTrade {
   symbol            String
   companyName       String?
   sector            String?
+  tradingDate       String           @default("")
+  source            String           @default("MANUAL")
   entryTime         DateTime
   entryPrice        Float
   quantity          Int
@@ -170,8 +172,13 @@ model PaperTrade {
   grossProfit       Float?
   charges           Float?
   netProfit         Float?
+  settledAt         DateTime?
+  settleNote        String?
   createdAt         DateTime         @default(now())
   exits             PaperTradeExit[]
+
+  @@index([tradingDate, status])
+  @@index([symbol, tradingDate])
 }
 
 model PaperTradeExit {

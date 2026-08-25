@@ -30,6 +30,10 @@ export const defaultStrategySettings: StrategySettings = {
   vwapClearancePct: 0.001,
   minimumAverageVolume: 1,
   maxHoldingCandles: 16,
+  superTrendPeriod: 10,
+  superTrendMultiplier: 1.7,
+  requireSuperTrend: true,
+  requireDailySuperTrend: true,
   squareOffTime: "15:15",
   allowOverlap: false,
   charges: {
@@ -62,6 +66,9 @@ export const appConfig: AppConfig = {
   scanLookbackDays: numberFromEnv("SCAN_LOOKBACK_DAYS", 25),
   dailyLookbackDays: numberFromEnv("DAILY_LOOKBACK_DAYS", 45),
   autoScanEnabled: boolFromEnv("AUTO_SCAN_ENABLED", false),
+  autoScanIntervalMinutes: numberFromEnv("AUTO_SCAN_INTERVAL_MINUTES", 5),
+  autoScanUniverse: process.env.AUTO_SCAN_UNIVERSE === "nse-equity" ? "nse-equity" : "nifty200",
+  autoPaperTradeEnabled: boolFromEnv("AUTO_PAPER_TRADE_ENABLED", false),
   strategy: defaultStrategySettings
 };
 

@@ -16,7 +16,7 @@ npm install
 npm run db:setup
 ```
 
-`npm run db:setup` generates Prisma Client and applies the checked-in SQLite schema to `prisma/dev.db`.
+`npm run db:setup` generates Prisma Client and applies any pending checked-in migrations to `prisma/dev.db`. It tracks what it has already run, so it is safe to re-run after pulling schema changes.
 
 ## Start the Dashboard
 
@@ -74,6 +74,67 @@ npm run backtest -- --symbols RELIANCE,TCS --start 2026-08-01 --end 2026-08-23
 ```
 
 The dashboard backtest form accepts comma-separated symbols. Leave symbols blank in API usage to test the selected universe.
+
+## SuperTrend Filter
+
+Every scan also evaluates a SuperTrend (the SFI CHARLIE / ATR-band indicator) and requires it to agree before a stock can reach BUY:
+
+- `superTrendUp` - the intraday SuperTrend on 15-minute candles is in an uptrend.
+- `dailySuperTrendUp` - the SuperTrend recomputed on completed daily candles agrees with it.
+
+Bands are `ohlc4 +/- multiplier * ATR(period)` using Wilder's ATR, ratcheted so each band only moves in the trend's favour, flipping when a close crosses the opposite band from the previous bar. Defaults are period 10 and multiplier 1.7, tunable under **SuperTrend filter** in Strategy Settings, where each leg can also be switched off.
+
+The daily leg reuses the daily candles already fetched for pivots, so it costs no extra provider requests. The **Trend** column in the results table shows both verdicts as a pair of arrows: intraday first, daily second.
+
+Adding these two conditions takes the strict list from 18 to 20. `minimumWatchPassCount` is an absolute count, so leaving it at 12 makes WATCH slightly easier to reach than before; raise it to 13 or 14 to keep the old ratio.
+
+## Rolling Intraday Scans
+
+Set `AUTO_SCAN_ENABLED=true` to re-scan on a fixed cadence while NSE is open:
+
+```bash
+AUTO_SCAN_ENABLED=true
+AUTO_SCAN_INTERVAL_MINUTES=5
+AUTO_SCAN_UNIVERSE=nifty200
+```
+
+A scan still running when the next tick arrives is skipped rather than queued, and ticks outside market hours do nothing.
+
+Cadence has to fit the universe. Measured on this machine with a warm cache, Nifty 200 takes roughly 30-50 seconds and fits comfortably inside five minutes; the full NSE list takes over three minutes warm and more than thirteen on a cold cache, so it cannot keep a five-minute schedule. Use `nifty200` for rolling scans and run the full list on demand.
+
+## Daily Paper Trading
+
+Paper trading can run as a full daily cycle. It stays local: no broker is contacted and no live order is ever placed.
+
+Enable auto-entry in `.env`:
+
+```bash
+AUTO_PAPER_TRADE_ENABLED=true
+```
+
+With the flag on, every scan opens one paper trade per BUY candidate, deduplicated by symbol and trading date, so repeated scans through the day never stack positions on the same stock. Leave the flag off to keep creating paper trades by hand from the dashboard.
+
+Positions are settled end-of-day: once the closing bell has passed, that session's completed 15-minute candles are replayed and each open position is closed with the same exit rules the backtester uses.
+
+- Target touched, stop touched, or the `squareOffTime` candle reached
+- If a single candle touches both target and stop, the stop wins, matching the backtester's conservative handling
+- Positions still open after `maxHoldingCandles` exit at that candle's close
+
+The running server settles automatically when `AUTO_PAPER_TRADE_ENABLED=true`. You can also settle on demand:
+
+```bash
+npm run paper:settle
+```
+
+For a specific session, plus a day-wise report:
+
+```bash
+npm run paper:settle -- --date 2026-08-21 --report
+```
+
+From the dashboard, press **Settle day** in the Paper Trading panel. Settlement is safe to repeat; positions whose session has not closed yet are left open, and a position whose candles are unavailable stays open with a note explaining why.
+
+Day-wise performance is available at `http://127.0.0.1:4000/api/paper-trades/daily` and in the Paper Trading panel, showing per-session trade counts, target/stop/timed exit splits, win rate, net P&L, and a cumulative running total.
 
 ## Export Results
 
@@ -149,7 +210,7 @@ Add a new class that implements `MarketDataProvider` in `backend/src/market/Mark
 
 ## Paper Trading Warning
 
-Paper trades are local database records only. They do not connect to Groww, Dhan, Upstox, or any broker, and they cannot place live orders.
+Paper trades are local database records only. They do not connect to Groww, Dhan, Upstox, or any broker, and they cannot place live orders. This is true of automatic daily entries and end-of-day settlement as well: both only write rows to the local SQLite database.
 
 ## Troubleshooting
 

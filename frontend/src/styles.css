@@ -1812,3 +1812,525 @@ tbody tr.selected {
     width: 100%;
   }
 }
+
+/* =============================================================================
+   Horizon refinement layer
+   Premium pass over the base styles above: deeper palette, layered elevation,
+   glass surfaces, tabular numerals, and the dual-scope scan CTA.
+   ========================================================================== */
+
+:root {
+  --ink: #0d1424;
+  --ink-soft: #24304a;
+  --muted: #5c6a82;
+  --subtle: #8593a8;
+  --border: #e2e9f5;
+  --border-strong: #c8d4ea;
+  --line: #ebf0f9;
+
+  --violet: #6b4dff;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --grad-primary: linear-gradient(135deg, #2b6cff 0%, #4a5cff 46%, #00a67d 100%);
+  --grad-primary-hover: linear-gradient(135deg, #1f59da 0%, #3d4ee6 46%, #07936f 100%);
+
+  --shadow-soft: 0 6px 18px -8px rgba(18, 38, 88, 0.18);
+  --shadow: 0 22px 48px -22px rgba(18, 38, 88, 0.34), 0 4px 14px -8px rgba(18, 38, 88, 0.16);
+  --shadow-lift: 0 32px 64px -26px rgba(18, 38, 88, 0.42);
+  --glow-primary: 0 16px 36px -14px rgba(43, 108, 255, 0.62);
+}
+
+/* --- Ambient canvas ------------------------------------------------------ */
+
+body {
+  background:
+    radial-gradient(70rem 40rem at 12% -8%, rgba(43, 108, 255, 0.16), transparent 62%),
+    radial-gradient(56rem 34rem at 92% 4%, rgba(0, 166, 125, 0.16), transparent 60%),
+    radial-gradient(48rem 30rem at 70% 92%, rgba(107, 77, 255, 0.1), transparent 62%),
+    linear-gradient(90deg, rgba(43, 108, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(17, 28, 68, 0.024) 1px, transparent 1px),
+    #eef3fc;
+  background-size: auto, auto, auto, 32px 32px, 32px 32px, auto;
+  background-attachment: fixed;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Typography ---------------------------------------------------------- */
+
+h1 {
+  letter-spacing: -0.03em;
+}
+
+h2,
+h3 {
+  letter-spacing: -0.018em;
+}
+
+.eyebrow {
+  letter-spacing: 0.14em;
+}
+
+/* --- Shared surface treatment -------------------------------------------- */
+
+button,
+a,
+input,
+select {
+  border-radius: var(--radius-sm);
+}
+
+.header-stat,
+.control-band,
+.settings-band,
+.top-band,
+.result-panel,
+.details-panel,
+.backtest-panel,
+.paper-panel,
+.chart-frame,
+.sync-status-bar,
+.layout-toolbar,
+.cockpit-main,
+.cockpit-tiles,
+.cockpit-focus,
+.table-wrap,
+.opportunity,
+.empty-state {
+  border-radius: var(--radius-md);
+}
+
+.side-rail,
+.market-cockpit > * {
+  border-radius: var(--radius-lg);
+}
+
+.control-band,
+.settings-band,
+.top-band,
+.result-panel,
+.details-panel,
+.backtest-panel,
+.paper-panel {
+  box-shadow: var(--shadow);
+  transition: box-shadow 220ms ease, transform 220ms ease;
+}
+
+.control-band:hover,
+.result-panel:hover,
+.details-panel:hover,
+.backtest-panel:hover,
+.paper-panel:hover {
+  box-shadow: var(--shadow-lift);
+}
+
+/* --- Side rail ----------------------------------------------------------- */
+
+.side-rail {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow-lift), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.side-rail nav {
+  align-content: start;
+}
+
+.rail-card {
+  margin-top: auto;
+  border-radius: var(--radius-md);
+}
+
+.side-rail a.active {
+  box-shadow: inset 0 0 0 1px rgba(43, 108, 255, 0.24), 0 10px 24px -12px rgba(43, 108, 255, 0.5);
+}
+
+.rail-action {
+  border-radius: var(--radius-md);
+  background: var(--grad-primary);
+  box-shadow: var(--glow-primary);
+  letter-spacing: 0.01em;
+}
+
+.rail-action:hover {
+  background: var(--grad-primary-hover);
+  box-shadow: 0 20px 40px -14px rgba(43, 108, 255, 0.7);
+}
+
+/* --- Header stats --------------------------------------------------------- */
+
+.header-stat {
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.header-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+/* --- Market cockpit ------------------------------------------------------- */
+
+.market-cockpit > * {
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.cockpit-main {
+  padding: 20px;
+  gap: 14px;
+  align-content: start;
+}
+
+.cockpit-main h2 {
+  margin-bottom: 0;
+  font-size: clamp(1.3rem, 1.55vw, 1.62rem);
+  text-wrap: balance;
+}
+
+/* Tiles read as a compact 2x2 instrument cluster rather than tall empty cards. */
+.market-cockpit {
+  grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.15fr) minmax(240px, 0.8fr);
+}
+
+.cockpit-tiles {
+  padding: 12px;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.cockpit-tile {
+  min-height: 124px;
+  padding: 15px;
+  border-radius: var(--radius-md);
+  align-content: space-between;
+  box-shadow: var(--shadow-soft);
+}
+
+.cockpit-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.cockpit-tile::before {
+  width: 3px;
+  border-radius: 3px;
+}
+
+.cockpit-tile::after {
+  content: "";
+  position: absolute;
+  inset: auto -30% -60% auto;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  opacity: 0.12;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.cockpit-tile.buy::after {
+  background: radial-gradient(circle, var(--teal), transparent 68%);
+}
+
+.cockpit-tile.watch::after {
+  background: radial-gradient(circle, var(--amber), transparent 68%);
+}
+
+.cockpit-tile.reject::after {
+  background: radial-gradient(circle, var(--red), transparent 68%);
+}
+
+.cockpit-tile.paper::after {
+  background: radial-gradient(circle, var(--blue), transparent 68%);
+}
+
+.cockpit-tile:hover::after {
+  opacity: 0.2;
+}
+
+.cockpit-tile strong {
+  font-size: clamp(1.6rem, 2.1vw, 2.35rem);
+  letter-spacing: -0.03em;
+}
+
+.cockpit-focus {
+  border-radius: var(--radius-lg);
+}
+
+.cockpit-focus strong {
+  letter-spacing: -0.02em;
+}
+
+/* --- Buttons -------------------------------------------------------------- */
+
+.primary {
+  background: var(--grad-primary);
+  box-shadow: var(--glow-primary);
+  letter-spacing: 0.01em;
+}
+
+.primary:hover {
+  background: var(--grad-primary-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 42px -14px rgba(43, 108, 255, 0.68);
+}
+
+/* --- Dual-scope scan CTA --------------------------------------------------- */
+
+.controls {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.scan-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-self: end;
+}
+
+.scan-actions button,
+.cockpit-actions .primary {
+  min-height: 52px;
+  padding: 0 16px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-auto-rows: auto;
+  gap: 0 11px;
+  justify-content: start;
+  text-align: left;
+}
+
+.scan-actions button svg,
+.cockpit-actions .primary svg {
+  grid-row: 1 / -1;
+  align-self: center;
+}
+
+.scan-actions button span,
+.cockpit-actions .primary span {
+  font-size: 0.88rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.scan-actions button small {
+  grid-column: 2;
+  font-size: 0.71rem;
+  font-weight: 800;
+  opacity: 0.72;
+}
+
+/* Unselected scope stays quiet so the pair reads as one choice. */
+.scan-actions button:not(.active-scope),
+.cockpit-actions .primary:not(.active-scope) {
+  color: var(--navy);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--border-strong), var(--shadow-soft);
+}
+
+.scan-actions button:not(.active-scope):hover,
+.cockpit-actions .primary:not(.active-scope):hover {
+  color: var(--navy);
+  background: #f6f9ff;
+  box-shadow: inset 0 0 0 1px rgba(43, 108, 255, 0.35), 0 14px 30px -14px rgba(43, 108, 255, 0.4);
+}
+
+.scan-actions button.active-scope,
+.cockpit-actions .primary.active-scope {
+  color: #ffffff;
+  background: var(--grad-primary);
+  box-shadow: var(--glow-primary);
+}
+
+.scan-actions button.active-scope:hover,
+.cockpit-actions .primary.active-scope:hover {
+  color: #ffffff;
+  background: var(--grad-primary-hover);
+}
+
+.cockpit-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* --- Progress ------------------------------------------------------------- */
+
+.sync-track span,
+.cockpit-meter span,
+.track span {
+  position: relative;
+  overflow: hidden;
+}
+
+.sync-track span::after,
+.cockpit-meter span::after,
+.track span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: translateX(-100%);
+  animation: horizon-sheen 1.9s ease-in-out infinite;
+}
+
+@keyframes horizon-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* --- Tables --------------------------------------------------------------- */
+
+.table-wrap {
+  box-shadow: var(--shadow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+th {
+  backdrop-filter: blur(8px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+tbody tr {
+  transition: background 140ms ease, box-shadow 140ms ease;
+}
+
+tbody tr:hover {
+  background: #eef4ff;
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+tbody tr.selected {
+  background: #e7f0ff;
+  box-shadow: inset 3px 0 0 var(--violet);
+}
+
+/* --- Badges and pills ------------------------------------------------------ */
+
+.badge,
+.result-pill,
+.status-pill,
+.strategy-chips span {
+  border-radius: 999px;
+}
+
+.badge {
+  padding: 0 10px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.tabs button {
+  border-radius: 999px;
+  padding: 0 16px;
+}
+
+/* --- Motion --------------------------------------------------------------- */
+
+.dashboard-widget,
+.market-cockpit > * {
+  animation: horizon-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes horizon-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --- Narrow viewports ------------------------------------------------------ */
+
+@media (max-width: 1100px) {
+  .scan-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .scan-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Daily paper trading --------------------------------------------------- */
+
+.daily-pnl {
+  margin-bottom: 14px;
+}
+
+.daily-pnl .mini-table-wrap,
+.daily-pnl table {
+  min-width: 0;
+}
+
+.daily-pnl .mini-table {
+  min-width: 420px;
+}
+
+.settle-note {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(43, 108, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(43, 108, 255, 0.16);
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.source-tag {
+  min-height: 20px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  color: var(--teal-dark);
+  background: #d9f8ef;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.paper-panel .section-title .actions {
+  margin-left: auto;
+}
+
+/* --- SuperTrend column ----------------------------------------------------- */
+
+.trend-pair {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.trend-pair i {
+  font-style: normal;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.trend-pair i.up {
+  color: var(--teal);
+}
+
+.trend-pair i.down {
+  color: var(--red);
+}

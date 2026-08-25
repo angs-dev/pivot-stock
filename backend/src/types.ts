@@ -50,6 +50,10 @@ export interface StrategySettings {
   vwapClearancePct: number;
   minimumAverageVolume: number;
   maxHoldingCandles: number;
+  superTrendPeriod: number;
+  superTrendMultiplier: number;
+  requireSuperTrend: boolean;
+  requireDailySuperTrend: boolean;
   squareOffTime?: string;
   allowOverlap: boolean;
   charges: ChargeSettings;
@@ -72,6 +76,9 @@ export interface AppConfig {
   scanLookbackDays: number;
   dailyLookbackDays: number;
   autoScanEnabled: boolean;
+  autoScanIntervalMinutes: number;
+  autoScanUniverse: UniverseKey;
+  autoPaperTradeEnabled: boolean;
   strategy: StrategySettings;
 }
 

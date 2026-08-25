@@ -54,6 +54,11 @@ export function normalizeStrategySettings(input: Record<string, unknown>, base =
     vwapClearancePct: nonNegativeNumber(input.vwapClearancePct, base.vwapClearancePct),
     minimumAverageVolume: nonNegativeNumber(input.minimumAverageVolume, base.minimumAverageVolume),
     maxHoldingCandles: Math.max(1, Math.floor(positiveNumber(input.maxHoldingCandles, base.maxHoldingCandles))),
+    superTrendPeriod: Math.max(1, Math.floor(positiveNumber(input.superTrendPeriod, base.superTrendPeriod))),
+    superTrendMultiplier: positiveNumber(input.superTrendMultiplier, base.superTrendMultiplier),
+    requireSuperTrend: typeof input.requireSuperTrend === "boolean" ? input.requireSuperTrend : base.requireSuperTrend,
+    requireDailySuperTrend:
+      typeof input.requireDailySuperTrend === "boolean" ? input.requireDailySuperTrend : base.requireDailySuperTrend,
     squareOffTime: typeof input.squareOffTime === "string" ? input.squareOffTime : base.squareOffTime,
     allowOverlap: typeof input.allowOverlap === "boolean" ? input.allowOverlap : base.allowOverlap,
     charges
