@@ -1,0 +1,9 @@
+node_modules
+.npm-cache
+dist
+prisma/dev.db
+prisma/dev.db-journal
+# Keep environment variables out of version control
+.env
+
+/generated/prisma

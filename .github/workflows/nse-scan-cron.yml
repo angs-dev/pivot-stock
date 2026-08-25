@@ -1,0 +1,56 @@
+name: NSE Scanner Cron
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 3 * * 1-5"
+    - cron: "*/15 4-9 * * 1-5"
+    - cron: "0 10 * * 1-5"
+
+concurrency:
+  group: nse-scanner-cron
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Fast NSE scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      DATABASE_URL: file:./dev.db
+      AUTO_SCAN_ENABLED: "false"
+      PROVIDER_CONCURRENCY: "18"
+      PROVIDER_RATE_LIMIT_MS: "0"
+      PROVIDER_TIMEOUT_MS: "12000"
+      PROVIDER_RETRY_COUNT: "1"
+      CACHE_DURATION_MINUTES: "10"
+      DAILY_CACHE_DURATION_MINUTES: "1440"
+      SCAN_LOOKBACK_DAYS: "25"
+      DAILY_LOOKBACK_DAYS: "45"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup database
+        run: npm run db:setup
+
+      - name: Run fast NSE scan
+        run: npm run scan:cron
+
+      - name: Upload scan output
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nse-scan-output
+          path: scan-output/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Stock {
+  id            Int      @id @default(autoincrement())
+  symbol        String   @unique
+  yahooSymbol   String
+  companyName   String
+  sector        String?
+  industry      String?
+  source        String
+  lastUpdatedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+model Candle {
+  id          Int      @id @default(autoincrement())
+  symbol      String
+  timeframe   String
+  time        DateTime
+  tradingDate String
+  open        Float
+  high        Float
+  low         Float
+  close       Float
+  volume      Float
+  provider    String
+  isComplete  Boolean
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([symbol, timeframe, time])
+  @@index([symbol, timeframe, tradingDate])
+}
+
+model MarketDataCache {
+  id            Int      @id @default(autoincrement())
+  cacheKey      String   @unique
+  symbol        String
+  timeframe     String
+  provider      String
+  rangeStart    DateTime
+  rangeEnd      DateTime
+  candleCount   Int
+  missingReason String?
+  fetchedAt     DateTime @default(now())
+}
+
+model ScanRun {
+  id              Int          @id @default(autoincrement())
+  status          String
+  startedAt       DateTime     @default(now())
+  endedAt         DateTime?
+  settingsJson    String
+  totalStocks     Int          @default(0)
+  completedStocks Int          @default(0)
+  failedStocks    Int          @default(0)
+  provider        String
+  errorMessage    String?
+  logJson         String       @default("[]")
+  results         ScanResult[]
+}
+
+model ScanResult {
+  id                 Int               @id @default(autoincrement())
+  scanRunId          Int
+  scanRun            ScanRun           @relation(fields: [scanRunId], references: [id], onDelete: Cascade)
+  stockSymbol        String
+  companyName        String
+  sector             String?
+  category           String
+  score              Int
+  close              Float?
+  vwap               Float?
+  ema20              Float?
+  ema200             Float?
+  previousHigh       Float?
+  previousLow        Float?
+  previousClose      Float?
+  pivot              Float?
+  r1                 Float?
+  s1                 Float?
+  r2                 Float?
+  s2                 Float?
+  r3                 Float?
+  s3                 Float?
+  volumeRatio        Float?
+  breakoutLevel      Float?
+  breakoutType       String?
+  signalTime         DateTime?
+  entry              Float?
+  target1            Float?
+  target2            Float?
+  stopLoss           Float?
+  quantity           Int?
+  investment         Float?
+  profitTarget1Gross Float?
+  profitTarget2Gross Float?
+  maxLossGross       Float?
+  riskReward         Float?
+  distanceBreakout   Float?
+  capitalUnused      Float?
+  estimatedCharges   Float?
+  netProfitTarget2   Float?
+  failedCount        Int
+  liquidity          Float?
+  reasonsJson        String            @default("[]")
+  pendingJson        String            @default("[]")
+  createdAt          DateTime          @default(now())
+  conditions         ConditionResult[]
+  indicators         IndicatorValue[]
+
+  @@index([scanRunId, category, score])
+  @@index([stockSymbol])
+}
+
+model ConditionResult {
+  id           Int        @id @default(autoincrement())
+  scanResultId Int
+  scanResult   ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  key          String
+  label        String
+  passed       Boolean
+  message      String?
+  sortOrder    Int
+}
+
+model IndicatorValue {
+  id           Int        @id @default(autoincrement())
+  scanResultId Int
+  scanResult   ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  key          String
+  value        Float?
+}
+
+model Signal {
+  id            Int      @id @default(autoincrement())
+  symbol        String
+  tradingDate   String
+  breakoutType  String
+  breakoutLevel Float
+  scanResultId  Int?
+  createdAt     DateTime @default(now())
+
+  @@unique([symbol, tradingDate, breakoutType])
+}
+
+model PaperTrade {
+  id                Int              @id @default(autoincrement())
+  symbol            String
+  companyName       String?
+  sector            String?
+  entryTime         DateTime
+  entryPrice        Float
+  quantity          Int
+  target            Float
+  stopLoss          Float
+  signalScore       Int
+  signalReasonsJson String           @default("[]")
+  status            String           @default("OPEN")
+  exitPrice         Float?
+  exitTime          DateTime?
+  exitReason        String?
+  grossProfit       Float?
+  charges           Float?
+  netProfit         Float?
+  createdAt         DateTime         @default(now())
+  exits             PaperTradeExit[]
+}
+
+model PaperTradeExit {
+  id           Int        @id @default(autoincrement())
+  paperTradeId Int
+  paperTrade   PaperTrade @relation(fields: [paperTradeId], references: [id], onDelete: Cascade)
+  exitPrice    Float
+  exitTime     DateTime
+  exitReason   String
+  grossProfit  Float
+  charges      Float
+  netProfit    Float
+}
+
+model BacktestRun {
+  id                     Int             @id @default(autoincrement())
+  status                 String
+  startDate              String
+  endDate                String
+  settingsJson           String
+  symbolsRequested       Int             @default(0)
+  symbolsTested          Int             @default(0)
+  missingSymbolsJson     String          @default("[]")
+  totalSignals           Int             @default(0)
+  totalTrades            Int             @default(0)
+  winningTrades          Int             @default(0)
+  losingTrades           Int             @default(0)
+  winRate                Float           @default(0)
+  grossProfit            Float           @default(0)
+  totalCharges           Float           @default(0)
+  netProfit              Float           @default(0)
+  averageProfit          Float           @default(0)
+  averageReturn          Float           @default(0)
+  bestTrade              Float           @default(0)
+  worstTrade             Float           @default(0)
+  consecutiveWins        Int             @default(0)
+  consecutiveLosses      Int             @default(0)
+  maxDrawdown            Float           @default(0)
+  profitFactor           Float           @default(0)
+  targetHitCount         Int             @default(0)
+  stopLossHitCount       Int             @default(0)
+  timeExitCount          Int             @default(0)
+  monthlyPerformanceJson String          @default("[]")
+  symbolPerformanceJson  String          @default("[]")
+  equityCurveJson        String          @default("[]")
+  startedAt              DateTime        @default(now())
+  endedAt                DateTime?
+  errorMessage           String?
+  logJson                String          @default("[]")
+  trades                 BacktestTrade[]
+}
+
+model BacktestTrade {
+  id            Int         @id @default(autoincrement())
+  backtestRunId Int
+  backtestRun   BacktestRun @relation(fields: [backtestRunId], references: [id], onDelete: Cascade)
+  symbol        String
+  signalTime    DateTime
+  entryTime     DateTime
+  exitTime      DateTime
+  entryPrice    Float
+  exitPrice     Float
+  quantity      Int
+  target        Float
+  stopLoss      Float
+  exitReason    String
+  grossProfit   Float
+  charges       Float
+  netProfit     Float
+  returnPct     Float
+  score         Int
+  breakoutType  String?
+  breakoutLevel Float?
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
